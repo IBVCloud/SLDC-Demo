@@ -37,7 +37,7 @@ jobs:
           sfdx force:source:convert -d ./deploy_code -r ./force-app
 
       - name: Run validation on UAT sandbox
-        run: sf force mdapi deploy --deploydir ./deploy_code --checkonly --targetusername uat --wait 20 --testlevel NoTestRun
+        run: sf force mdapi deploy --deploydir ./deploy_code --checkonly --targetusername uat --wait 20 --testlevel RunLocalTests
 
 
   deploy-to-uat:
