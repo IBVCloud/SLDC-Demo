@@ -1,0 +1,96 @@
+name: Salesforce CI/CD Workflow
+
+on:
+  push:
+    branches:
+      - uat
+      - release_*
+  pull_request:
+    branches:
+      - uat
+
+jobs:
+  validation-to-uat-on-pr:
+    if: github.event_name == 'pull_request' && github.event.action == 'opened' || github.event.action == 'synchronize'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '18'
+
+      - name: Install Salesforce CLI
+        run: npm install @salesforce/cli --global
+
+      - name: Authenticate to Salesforce
+        run: |
+          echo "${SF_JWT_KEY}" | base64 -d > server.key
+          sfdx force:auth:jwt:grant --client-id ${{ secrets.SF_UAT_CONSUMER_KEY }} --jwt-key-file server.key --username ${{ secrets.SF_UAT_USERNAME }} --instance-url https://test.salesforce.com --alias uat
+        env:
+          SF_JWT_KEY: ${{ secrets.SF_JWT_KEY }}
+
+      - name: Convert metadata
+        run: |
+          [[ -d ./deploy_code ]] && rm -r ./deploy_code
+          sfdx force:source:convert -d ./deploy_code -r ./force-app
+
+      - name: Run validation on UAT sandbox
+        run: sf force mdapi deploy --deploydir ./deploy_code --checkonly --targetusername uat --wait 20 --testlevel NoTestRun
+
+
+  deploy-to-uat:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/uat'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '18'
+
+      - name: Install Salesforce CLI
+        run: npm install @salesforce/cli --global
+
+      - name: Authenticate to Salesforce
+        run: |
+          echo "${SF_JWT_KEY}" | base64 -d > server.key
+          sfdx force:auth:jwt:grant --client-id ${{ secrets.SF_UAT_CONSUMER_KEY }} --jwt-key-file server.key --username ${{ secrets.SF_UAT_USERNAME }} --instance-url https://test.salesforce.com --alias uat
+        env:
+          SF_JWT_KEY: ${{ secrets.SF_JWT_KEY }}
+
+      - name: Convert metadata
+        run: sfdx force:source:convert -d ./deploy_code -r ./force-app
+
+      - name: Run deployment to UAT sandbox
+        run: sf force mdapi deploy --deploydir ./deploy_code --targetusername uat --wait 20 --testlevel RunLocalTests
+
+
+  validate-to-prod:
+    if: startsWith(github.ref, 'refs/heads/release_')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '18'
+
+      - name: Install Salesforce CLI
+        run: npm install @salesforce/cli --global
+
+      - name: Authenticate to Salesforce
+        run: |
+          echo "${SF_JWT_KEY}" | base64 -d > server.key
+          sfdx force:auth:jwt:grant --client-id ${{ secrets.SF_PROD_CONSUMER_KEY }} --jwt-key-file server.key --username ${{ secrets.SF_PROD_USERNAME }} --instance-url https://login.salesforce.com --alias prod
+        env:
+          SF_JWT_KEY: ${{ secrets.SF_JWT_KEY }}
+
+      - name: Convert metadata
+        run: sfdx force:source:convert -d ./deploy_code -r ./force-app
+
+      - name: Run validation to Prod
+        run: sf force mdapi deploy --deploydir ./deploy_code --checkonly --targetusername prod --wait 20 --testlevel RunLocalTests
