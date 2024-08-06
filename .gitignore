@@ -48,3 +48,6 @@ $RECYCLE.BIN/
 /IlluminatedCloud/
 /out/
 target/
+
+tmp
+.idea
