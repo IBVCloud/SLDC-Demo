@@ -6,6 +6,7 @@ private class UtilsTest {
         String randomString = Utils.generateUUID();
         Test.stopTest();
 
-        Assert.isNotNull(randomString);
+        Assert.isNull(randomString);
     }
 }
+
