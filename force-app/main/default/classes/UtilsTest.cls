@@ -9,3 +9,4 @@ private class UtilsTest {
         Assert.isNotNull(randomString);
     }
 }
+
